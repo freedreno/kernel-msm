@@ -139,6 +139,7 @@ enum arm_smmu_cbar_type {
 
 #define ARM_SMMU_CB_SCTLR		0x0
 #define SCTLR_S1_ASIDPNE		BIT(12)
+#define SCTLR_HUPCF			BIT(8)
 #define SCTLR_CFCFG			BIT(7)
 #define SCTLR_CFIE			BIT(6)
 #define SCTLR_CFRE			BIT(5)
