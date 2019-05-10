@@ -221,7 +221,8 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	fault_port = F_MMU0_INT_ID_PORT_ID(regval);
 
 	if (report_iommu_fault(&dom->domain, data->dev, fault_iova,
-			       write ? IOMMU_FAULT_WRITE : IOMMU_FAULT_READ)) {
+			       write ? IOMMU_FAULT_WRITE : IOMMU_FAULT_READ,
+			       NULL)) {
 		dev_err_ratelimited(
 			data->dev,
 			"fault type=0x%x iova=0x%x pa=0x%x larb=%d port=%d layer=%d %s\n",

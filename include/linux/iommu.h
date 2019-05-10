@@ -363,7 +363,7 @@ extern int iommu_domain_window_enable(struct iommu_domain *domain, u32 wnd_nr,
 extern void iommu_domain_window_disable(struct iommu_domain *domain, u32 wnd_nr);
 
 extern int report_iommu_fault(struct iommu_domain *domain, struct device *dev,
-			      unsigned long iova, int flags);
+			      unsigned long iova, int flags, void *cookie);
 
 static inline void iommu_flush_tlb_all(struct iommu_domain *domain)
 {

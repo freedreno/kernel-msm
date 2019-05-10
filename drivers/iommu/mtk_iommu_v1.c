@@ -187,7 +187,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	 * write fault, report as read fault.
 	 */
 	if (report_iommu_fault(&dom->domain, data->dev, fault_iova,
-			IOMMU_FAULT_READ))
+			IOMMU_FAULT_READ, NULL))
 		dev_err_ratelimited(data->dev,
 			"fault type=0x%x iova=0x%x pa=0x%x larb=%d port=%d\n",
 			int_state, fault_iova, fault_pa,

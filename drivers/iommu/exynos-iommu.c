@@ -445,7 +445,8 @@ static irqreturn_t exynos_sysmmu_irq(int irq, void *dev_id)
 
 	if (data->domain)
 		ret = report_iommu_fault(&data->domain->domain,
-					data->master, fault_addr, finfo->type);
+					data->master, fault_addr,
+					finfo->type, NULL);
 	/* fault is not recovered by fault handler */
 	BUG_ON(ret != 0);
 

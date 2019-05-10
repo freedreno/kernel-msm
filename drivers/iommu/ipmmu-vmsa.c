@@ -556,7 +556,7 @@ static irqreturn_t ipmmu_domain_irq(struct ipmmu_vmsa_domain *domain)
 	 * TODO: We need to look up the faulty device based on the I/O VA. Use
 	 * the IOMMU device for now.
 	 */
-	if (!report_iommu_fault(&domain->io_domain, mmu->dev, iova, 0))
+	if (!report_iommu_fault(&domain->io_domain, mmu->dev, iova, 0, NULL))
 		return IRQ_HANDLED;
 
 	dev_err_ratelimited(mmu->dev,

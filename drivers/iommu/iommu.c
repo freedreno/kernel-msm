@@ -1787,6 +1787,7 @@ EXPORT_SYMBOL_GPL(iommu_domain_window_disable);
  * @dev: the device where the fault has happened
  * @iova: the faulting address
  * @flags: mmu fault flags (e.g. IOMMU_FAULT_READ/IOMMU_FAULT_WRITE/...)
+ * @cookie: unused
  *
  * This function should be called by the low-level IOMMU implementations
  * whenever IOMMU faults happen, to allow high-level users, that are
@@ -1806,7 +1807,7 @@ EXPORT_SYMBOL_GPL(iommu_domain_window_disable);
  * elicit the default behavior of the IOMMU drivers).
  */
 int report_iommu_fault(struct iommu_domain *domain, struct device *dev,
-		       unsigned long iova, int flags)
+		       unsigned long iova, int flags, void *cookie)
 {
 	int ret = -ENOSYS;
 
@@ -1816,7 +1817,7 @@ int report_iommu_fault(struct iommu_domain *domain, struct device *dev,
 	 */
 	if (domain->handler)
 		ret = domain->handler(domain, dev, iova, flags,
-						domain->handler_token, NULL);
+						domain->handler_token, cookie);
 
 	trace_io_page_fault(dev, iova, flags);
 	return ret;

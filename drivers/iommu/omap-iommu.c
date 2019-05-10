@@ -834,7 +834,7 @@ static irqreturn_t iommu_fault_handler(int irq, void *data)
 		return IRQ_HANDLED;
 
 	/* Fault callback or TLB/PTE Dynamic loading */
-	if (!report_iommu_fault(domain, obj->dev, da, 0))
+	if (!report_iommu_fault(domain, obj->dev, da, 0, NULL))
 		return IRQ_HANDLED;
 
 	iommu_write_reg(obj, 0, MMU_IRQENABLE);
