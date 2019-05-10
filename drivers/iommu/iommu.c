@@ -1881,6 +1881,28 @@ int iommu_domain_set_attr(struct iommu_domain *domain,
 }
 EXPORT_SYMBOL_GPL(iommu_domain_set_attr);
 
+/**
+ * iommu_domain_resume - Resume translations for a domain after a fault.
+ *
+ * This can be called at some point after the fault handler is called,
+ * allowing the user of the IOMMU to (for example) handle the fault
+ * from a task context.  It is illegal to call this if
+ * iommu_domain_set_attr(STALL) failed.
+ *
+ * @domain:    the domain to resume
+ * @terminate: if true, the translation that triggered the fault should
+ *    be terminated, else it should be retried.
+ */
+void iommu_domain_resume(struct iommu_domain *domain, bool terminate,
+			 void *cookie)
+{
+	/* invalid to call if iommu_domain_set_attr(STALL) failed: */
+	if (WARN_ON(!domain->ops->domain_resume))
+		return;
+	domain->ops->domain_resume(domain, terminate, cookie);
+}
+EXPORT_SYMBOL_GPL(iommu_domain_resume);
+
 void iommu_get_resv_regions(struct device *dev, struct list_head *list)
 {
 	const struct iommu_ops *ops = dev->bus->iommu_ops;

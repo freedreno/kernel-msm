@@ -136,6 +136,20 @@ enum iommu_attr {
 	DOMAIN_ATTR_FSL_PAMUV1,
 	DOMAIN_ATTR_NESTING,	/* two stages of translation */
 	DOMAIN_ATTR_DMA_USE_FLUSH_QUEUE,
+	/*
+	 * Domain stalls faulting translations, if DOMAIN_ATTR_STALL is
+	 * enabled, user of domain calls iommu_domain_resume() at some
+	 * point (either from fault handler or asynchronously after
+	 * the fault handler is called (for example, from a workqueue)
+	 * to resume translations.
+	 *
+	 * The attribute value is a bool, and should be set before
+	 * attaching the domain.
+	 *
+	 * If the IOMMU driver does not support stalling, attempts to
+	 * set this attribute should return an error.
+	 */
+	DOMAIN_ATTR_STALL,
 	DOMAIN_ATTR_MAX,
 };
 
@@ -189,6 +203,7 @@ struct iommu_resv_region {
  * @device_group: find iommu group for a particular device
  * @domain_get_attr: Query domain attributes
  * @domain_set_attr: Change domain attributes
+ * @domain_resume: Resume a stalled domain.
  * @get_resv_regions: Request list of reserved regions for a device
  * @put_resv_regions: Free list of reserved regions for a device
  * @apply_resv_region: Temporary helper call-back for iova reserved ranges
@@ -225,6 +240,8 @@ struct iommu_ops {
 			       enum iommu_attr attr, void *data);
 	int (*domain_set_attr)(struct iommu_domain *domain,
 			       enum iommu_attr attr, void *data);
+	void (*domain_resume)(struct iommu_domain *domain, bool terminate,
+			      void *cookie);
 
 	/* Request/Free a list of reserved regions for a device */
 	void (*get_resv_regions)(struct device *dev, struct list_head *list);
@@ -355,6 +372,8 @@ extern int iommu_domain_get_attr(struct iommu_domain *domain, enum iommu_attr,
 				 void *data);
 extern int iommu_domain_set_attr(struct iommu_domain *domain, enum iommu_attr,
 				 void *data);
+extern void iommu_domain_resume(struct iommu_domain *domain, bool terminate,
+				void *cookie);
 
 /* Window handling function prototypes */
 extern int iommu_domain_window_enable(struct iommu_domain *domain, u32 wnd_nr,
