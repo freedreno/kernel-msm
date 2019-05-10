@@ -150,6 +150,7 @@ struct arm_smmu_cb {
 	u64				ttbr[2];
 	u32				tcr[2];
 	u32				mair[2];
+	bool				stall;
 	struct arm_smmu_cfg		*cfg;
 };
 
@@ -256,6 +257,7 @@ struct arm_smmu_domain {
 	const struct iommu_gather_ops	*tlb_ops;
 	struct arm_smmu_cfg		cfg;
 	enum arm_smmu_domain_stage	stage;
+	bool				stall;
 	bool				non_strict;
 	struct mutex			init_mutex; /* Protects smmu pointer */
 	spinlock_t			cb_lock; /* Serialises ATS1* ops and TLB syncs */
@@ -567,6 +569,34 @@ static const struct iommu_gather_ops arm_smmu_s2_tlb_ops_v1 = {
 	.tlb_sync	= arm_smmu_tlb_sync_vmid,
 };
 
+static void arm_smmu_domain_resume(struct iommu_domain *domain, bool terminate,
+				   void *cookie)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	void __iomem *cb_base;
+	unsigned val;
+
+	/*
+	 * We don't really need the cookie, it should be same as domain, just
+	 * to be able to WARN_ON() incorrect usage from the user
+	 */
+	WARN_ON(domain != cookie);
+
+	if (!smmu_domain->stall)
+		return;
+
+	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
+
+	if (terminate)
+		val = RESUME_TERMINATE;
+	else
+		val = RESUME_RETRY;
+
+	writel_relaxed(val, cb_base + ARM_SMMU_CB_RESUME);
+}
+
 static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 {
 	u32 fsr, fsynr;
@@ -586,11 +616,14 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	fsynr = readl_relaxed(cb_base + ARM_SMMU_CB_FSYNR0);
 	iova = readq_relaxed(cb_base + ARM_SMMU_CB_FAR);
 
-	dev_err_ratelimited(smmu->dev,
-	"Unhandled context fault: fsr=0x%x, iova=0x%08lx, fsynr=0x%x, cb=%d\n",
-			    fsr, iova, fsynr, cfg->cbndx);
-
 	writel(fsr, cb_base + ARM_SMMU_CB_FSR);
+
+	if (!report_iommu_fault(domain, smmu->dev, iova, 0, domain)) {
+		dev_err_ratelimited(smmu->dev,
+		"Unhandled context fault: fsr=0x%x, iova=0x%08lx, fsynr=0x%x, cb=%d\n",
+				    fsr, iova, fsynr, cfg->cbndx);
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -656,6 +689,8 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 	} else {
 		cb->ttbr[0] = pgtbl_cfg->arm_lpae_s2_cfg.vttbr;
 	}
+
+	cb->stall = smmu_domain->stall;
 
 	/* MAIRs (stage-1 only) */
 	if (stage1) {
@@ -747,6 +782,8 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx)
 
 	/* SCTLR */
 	reg = SCTLR_CFIE | SCTLR_CFRE | SCTLR_AFE | SCTLR_TRE | SCTLR_M;
+	if (cb->stall)
+		reg |= SCTLR_CFCFG;    /* stall on fault */
 	if (stage1)
 		reg |= SCTLR_S1_ASIDPNE;
 	if (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN))
@@ -1584,6 +1621,9 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		case DOMAIN_ATTR_NESTING:
 			*(int *)data = (smmu_domain->stage == ARM_SMMU_DOMAIN_NESTED);
 			return 0;
+		case DOMAIN_ATTR_STALL:
+			*(bool *)data = smmu_domain->stall;
+			return 0;
 		default:
 			return -ENODEV;
 		}
@@ -1645,6 +1685,28 @@ out_unlock:
 	return ret;
 }
 
+static int arm_smmu_domain_set_attr_can_stall(struct iommu_domain *domain,
+					      enum iommu_attr attr, void *data)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	int ret;
+
+	switch (attr) {
+	case DOMAIN_ATTR_STALL:
+		mutex_lock(&smmu_domain->init_mutex);
+		if (smmu_domain->smmu) {
+			ret = -EPERM;
+		} else {
+			smmu_domain->stall = *(bool *)data;
+			ret = 0;
+		}
+		mutex_unlock(&smmu_domain->init_mutex);
+		return ret;
+	default:
+		return arm_smmu_domain_set_attr(domain, attr, data);
+	}
+}
+
 static int arm_smmu_of_xlate(struct device *dev, struct of_phandle_args *args)
 {
 	u32 mask, fwid = 0;
@@ -1700,6 +1762,34 @@ static struct iommu_ops arm_smmu_ops = {
 	.device_group		= arm_smmu_device_group,
 	.domain_get_attr	= arm_smmu_domain_get_attr,
 	.domain_set_attr	= arm_smmu_domain_set_attr,
+	.domain_resume		= arm_smmu_domain_resume,
+	.of_xlate		= arm_smmu_of_xlate,
+	.get_resv_regions	= arm_smmu_get_resv_regions,
+	.put_resv_regions	= arm_smmu_put_resv_regions,
+	.pgsize_bitmap		= -1UL, /* Restricted during device attach */
+};
+
+/* We unfortunately don't have a very good way to differentiate between
+ * IOMMU implementations that can stall vs. those that cannot, before
+ * attaching the domain.  The solution is two different sets of driver
+ * ops, that are installed depending on whether stall is supported.
+ */
+static struct iommu_ops arm_smmu_ops_can_stall = {
+	.capable		= arm_smmu_capable,
+	.domain_alloc		= arm_smmu_domain_alloc,
+	.domain_free		= arm_smmu_domain_free,
+	.attach_dev		= arm_smmu_attach_dev,
+	.map			= arm_smmu_map,
+	.unmap			= arm_smmu_unmap,
+	.flush_iotlb_all	= arm_smmu_flush_iotlb_all,
+	.iotlb_sync		= arm_smmu_iotlb_sync,
+	.iova_to_phys		= arm_smmu_iova_to_phys,
+	.add_device		= arm_smmu_add_device,
+	.remove_device		= arm_smmu_remove_device,
+	.device_group		= arm_smmu_device_group,
+	.domain_get_attr	= arm_smmu_domain_get_attr,
+	.domain_set_attr	= arm_smmu_domain_set_attr_can_stall,
+	.domain_resume		= arm_smmu_domain_resume,
 	.of_xlate		= arm_smmu_of_xlate,
 	.get_resv_regions	= arm_smmu_get_resv_regions,
 	.put_resv_regions	= arm_smmu_put_resv_regions,
@@ -2152,24 +2242,24 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev,
 	return 0;
 }
 
-static void arm_smmu_bus_init(void)
+static void arm_smmu_bus_init(const struct iommu_ops *ops)
 {
 	/* Oh, for a proper bus abstraction */
 	if (!iommu_present(&platform_bus_type))
-		bus_set_iommu(&platform_bus_type, &arm_smmu_ops);
+		bus_set_iommu(&platform_bus_type, ops);
 #ifdef CONFIG_ARM_AMBA
 	if (!iommu_present(&amba_bustype))
-		bus_set_iommu(&amba_bustype, &arm_smmu_ops);
+		bus_set_iommu(&amba_bustype, ops);
 #endif
 #ifdef CONFIG_PCI
 	if (!iommu_present(&pci_bus_type)) {
 		pci_request_acs();
-		bus_set_iommu(&pci_bus_type, &arm_smmu_ops);
+		bus_set_iommu(&pci_bus_type, ops);
 	}
 #endif
 #ifdef CONFIG_FSL_MC_BUS
 	if (!iommu_present(&fsl_mc_bus_type))
-		bus_set_iommu(&fsl_mc_bus_type, &arm_smmu_ops);
+		bus_set_iommu(&fsl_mc_bus_type, ops);
 #endif
 }
 
@@ -2177,6 +2267,7 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	resource_size_t ioaddr;
+	const struct iommu_ops *ops;
 	struct arm_smmu_device *smmu;
 	struct device *dev = &pdev->dev;
 	int num_irqs, i, err;
@@ -2280,7 +2371,13 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 		return err;
 	}
 
-	iommu_device_set_ops(&smmu->iommu, &arm_smmu_ops);
+	if (smmu->model == QCOM_SMMUV2)
+		ops = &arm_smmu_ops_can_stall;
+	else
+		ops = &arm_smmu_ops;
+
+	iommu_device_set_ops(&smmu->iommu, ops);
+
 	iommu_device_set_fwnode(&smmu->iommu, dev->fwnode);
 
 	err = iommu_device_register(&smmu->iommu);
@@ -2310,7 +2407,7 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	 * ready to handle default domain setup as soon as any SMMU exists.
 	 */
 	if (!using_legacy_binding)
-		arm_smmu_bus_init();
+		arm_smmu_bus_init(ops);
 
 	return 0;
 }
@@ -2324,7 +2421,7 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 static int arm_smmu_legacy_bus_init(void)
 {
 	if (using_legacy_binding)
-		arm_smmu_bus_init();
+		arm_smmu_bus_init(&arm_smmu_ops);
 	return 0;
 }
 device_initcall_sync(arm_smmu_legacy_bus_init);
