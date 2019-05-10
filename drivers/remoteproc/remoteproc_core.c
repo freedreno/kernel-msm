@@ -88,7 +88,8 @@ static const char *rproc_crash_to_string(enum rproc_crash_type type)
  * will try to access an unmapped device address.
  */
 static int rproc_iommu_fault(struct iommu_domain *domain, struct device *dev,
-			     unsigned long iova, int flags, void *token)
+			     unsigned long iova, int flags, void *token,
+			     void *cookie)
 {
 	struct rproc *rproc = token;
 

@@ -25,7 +25,7 @@ struct msm_iommu {
 #define to_msm_iommu(x) container_of(x, struct msm_iommu, base)
 
 static int msm_fault_handler(struct iommu_domain *domain, struct device *dev,
-		unsigned long iova, int flags, void *arg)
+		unsigned long iova, int flags, void *arg, void *cookie)
 {
 	struct msm_iommu *iommu = arg;
 	if (iommu->base.handler)

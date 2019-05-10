@@ -53,8 +53,19 @@ struct notifier_block;
 #define IOMMU_FAULT_READ	0x0
 #define IOMMU_FAULT_WRITE	0x1
 
-typedef int (*iommu_fault_handler_t)(struct iommu_domain *,
-			struct device *, unsigned long, int, void *);
+/**
+ * iommu_fault_handler_t
+ * @domain: the domain on which the fault occurred
+ * @dev: the attached device
+ * @iova: the faulting address
+ * @flags: IOMMU_FAULT_WRITE or IOMMU_FAULT_READ
+ * @token: user data passed back to the handler
+ * @cookie: unused
+ */
+typedef int (*iommu_fault_handler_t)(struct iommu_domain *domain,
+			struct device *dev, unsigned long iova,
+			int flags, void *token,
+			void *cookie);
 
 struct iommu_domain_geometry {
 	dma_addr_t aperture_start; /* First address that can be mapped    */
