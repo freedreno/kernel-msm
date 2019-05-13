@@ -425,21 +425,12 @@ find_submit(struct msm_ringbuffer *ring, uint32_t fence)
 
 static void retire_submits(struct msm_gpu *gpu);
 
-static void recover_worker(struct work_struct *work)
+static void dump_crash_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 {
-	struct msm_gpu *gpu = container_of(work, struct msm_gpu, recover_work);
 	struct drm_device *dev = gpu->dev;
 	struct msm_drm_private *priv = dev->dev_private;
-	struct msm_gem_submit *submit;
-	struct msm_ringbuffer *cur_ring = gpu->funcs->active_ring(gpu);
 	char *comm = NULL, *cmd = NULL;
-	int i;
 
-	mutex_lock(&dev->struct_mutex);
-
-	DRM_DEV_ERROR(dev->dev, "%s: hangcheck recover!\n", gpu->name);
-
-	submit = find_submit(cur_ring, cur_ring->memptrs->fence + 1);
 	if (submit) {
 		struct task_struct *task;
 
@@ -471,6 +462,23 @@ static void recover_worker(struct work_struct *work)
 
 	kfree(cmd);
 	kfree(comm);
+
+}
+
+static void recover_worker(struct work_struct *work)
+{
+	struct msm_gpu *gpu = container_of(work, struct msm_gpu, recover_work);
+	struct drm_device *dev = gpu->dev;
+	struct msm_gem_submit *submit;
+	struct msm_ringbuffer *cur_ring = gpu->funcs->active_ring(gpu);
+	int i;
+
+	mutex_lock(&dev->struct_mutex);
+
+	DRM_DEV_ERROR(dev->dev, "%s: hangcheck recover!\n", gpu->name);
+
+	submit = find_submit(cur_ring, cur_ring->memptrs->fence + 1);
+	dump_crash_submit(gpu, submit);
 
 	/*
 	 * Update all the rings with the latest and greatest fence.. this
