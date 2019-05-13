@@ -21,6 +21,7 @@
 struct msm_iommu {
 	struct msm_mmu base;
 	struct iommu_domain *domain;
+	void *resume_cookie;
 };
 #define to_msm_iommu(x) container_of(x, struct msm_iommu, base)
 
@@ -28,6 +29,7 @@ static int msm_fault_handler(struct iommu_domain *domain, struct device *dev,
 		unsigned long iova, int flags, void *arg, void *cookie)
 {
 	struct msm_iommu *iommu = arg;
+	iommu->resume_cookie = cookie;
 	if (iommu->base.handler)
 		return iommu->base.handler(iommu->base.arg, iova, flags);
 	pr_warn_ratelimited("*** fault: iova=%08lx, flags=%d\n", iova, flags);
@@ -71,6 +73,14 @@ static int msm_iommu_unmap(struct msm_mmu *mmu, uint64_t iova, unsigned len)
 	return 0;
 }
 
+static void msm_iommu_resume(struct msm_mmu *mmu)
+{
+	struct msm_iommu *iommu = to_msm_iommu(mmu);
+
+	iommu_domain_resume(iommu->domain, true, iommu->resume_cookie);
+	iommu->resume_cookie = NULL;
+}
+
 static void msm_iommu_destroy(struct msm_mmu *mmu)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
@@ -83,6 +93,7 @@ static const struct msm_mmu_funcs funcs = {
 		.detach = msm_iommu_detach,
 		.map = msm_iommu_map,
 		.unmap = msm_iommu_unmap,
+		.resume = msm_iommu_resume,
 		.destroy = msm_iommu_destroy,
 };
 
