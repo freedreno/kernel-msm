@@ -52,7 +52,18 @@ struct msm_ringbuffer {
 	struct list_head submits;
 	uint64_t iova;
 	uint32_t seqno;
+
+	/* Tracks current fence last time hangcheck timer ran to detect if
+	 * progress has been made since last timer expire
+	 */
 	uint32_t hangcheck_fence;
+
+	/* The current fence on last iommu fault.  We only dump state on the
+	 * first fault, since generally when things start faulting, we get
+	 * 1000's of faults.
+	 */
+	uint32_t fault_fence;
+
 	struct msm_rbmemptrs *memptrs;
 	uint64_t memptrs_iova;
 	struct msm_fence_context *fctx;

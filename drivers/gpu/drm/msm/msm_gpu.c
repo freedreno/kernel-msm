@@ -564,6 +564,55 @@ static void hangcheck_handler(struct timer_list *t)
 	queue_work(priv->wq, &gpu->retire_work);
 }
 
+static void fault_worker(struct work_struct *work)
+{
+	struct msm_gpu *gpu = container_of(work, struct msm_gpu, fault_work);
+	struct drm_device *dev = gpu->dev;
+	struct msm_mmu *mmu = gpu->aspace->mmu;
+	struct msm_drm_private *priv = dev->dev_private;
+	struct msm_gem_submit *submit;
+	struct msm_ringbuffer *ring = gpu->funcs->active_ring(gpu);
+	uint32_t fence = ring->memptrs->fence;
+
+	/* check that the IOMMU is really stalled:
+	 */
+	WARN_ON(fence != ring->fault_fence);
+
+	mutex_lock(&dev->struct_mutex);
+
+	DRM_DEV_ERROR(dev->dev, "%s: hangcheck recover!\n", gpu->name);
+
+	submit = find_submit(ring, ring->memptrs->fence + 1);
+	dump_crash_submit(gpu, submit);
+
+	mutex_unlock(&dev->struct_mutex);
+
+	mmu->funcs->resume(mmu);
+}
+
+void msm_gpu_handle_fault(struct msm_gpu *gpu, unsigned long iova, int flags)
+{
+	struct msm_drm_private *priv = gpu->dev->dev_private;
+	struct msm_ringbuffer *ring = gpu->funcs->active_ring(gpu);
+	uint32_t fence = ring->memptrs->fence;
+
+	/* if we can't stall on faulting translations, then don't bother
+	 * because the GPU state will have changed by the time the worker
+	 * can run.
+	 */
+	if (!gpu->iommu_can_stall)
+		return;
+
+	if (fence != ring->fault_fence) {
+		ring->fault_fence = fence;
+		gpu->last_fault_iova = iova;
+		queue_work(priv->wq, &gpu->fault_work);
+	} else {
+		struct msm_mmu *mmu = gpu->aspace->mmu;
+		mmu->funcs->resume(mmu);
+	}
+}
+
 /*
  * Performance Counters:
  */
@@ -835,11 +884,17 @@ msm_gpu_create_address_space(struct msm_gpu *gpu, struct platform_device *pdev,
 	 */
 	if (!adreno_is_a2xx(to_adreno_gpu(gpu))) {
 		struct iommu_domain *iommu = iommu_domain_alloc(&platform_bus_type);
+		bool trueval = true;
+
 		if (!iommu)
 			return NULL;
 
 		iommu->geometry.aperture_start = va_start;
 		iommu->geometry.aperture_end = va_end;
+
+		ret = iommu_domain_set_attr(iommu, DOMAIN_ATTR_STALL, &trueval);
+		if (ret == 0)
+			gpu->iommu_can_stall = true;
 
 		DRM_DEV_INFO(gpu->dev->dev, "%s: using IOMMU\n", gpu->name);
 
@@ -884,6 +939,7 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	INIT_LIST_HEAD(&gpu->active_list);
 	INIT_WORK(&gpu->retire_work, retire_worker);
 	INIT_WORK(&gpu->recover_work, recover_worker);
+	INIT_WORK(&gpu->fault_work, fault_worker);
 
 
 	timer_setup(&gpu->hangcheck_timer, hangcheck_handler, 0);

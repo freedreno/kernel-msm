@@ -104,6 +104,19 @@ struct msm_gpu {
 	/* does gpu need hw_init? */
 	bool needs_hw_init;
 
+	/* Does IOMMU support stall on fault?  If so we can utilize this
+	 * to dump cmdstream or capture GPU state on faults
+	 */
+	bool iommu_can_stall;
+
+	/* Last faulting address, for communicating fault address to
+	 * fault_work
+	 */
+	unsigned long last_fault_iova;
+
+	/* worker for handling IOMMU faults */
+	struct work_struct fault_work;
+
 	/* number of GPU hangs (for all contexts) */
 	int global_faults;
 
@@ -276,6 +289,8 @@ int msm_gpu_pm_resume(struct msm_gpu *gpu);
 void msm_gpu_resume_devfreq(struct msm_gpu *gpu);
 
 int msm_gpu_hw_init(struct msm_gpu *gpu);
+
+void msm_gpu_handle_fault(struct msm_gpu *gpu, unsigned long iova, int flags);
 
 void msm_gpu_perfcntr_start(struct msm_gpu *gpu);
 void msm_gpu_perfcntr_stop(struct msm_gpu *gpu);

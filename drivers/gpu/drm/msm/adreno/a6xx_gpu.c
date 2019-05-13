@@ -591,6 +591,8 @@ static int a6xx_fault_handler(void *arg, unsigned long iova, int flags)
 			gpu_read(gpu, REG_A6XX_CP_SCRATCH_REG(6)),
 			gpu_read(gpu, REG_A6XX_CP_SCRATCH_REG(7)));
 
+	msm_gpu_handle_fault(gpu, iova, flags);
+
 	return -EFAULT;
 }
 
