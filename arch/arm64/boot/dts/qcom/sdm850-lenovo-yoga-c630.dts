@@ -45,11 +45,13 @@
 		};
 	};
 
+	/*
+	 * stub node which defines how panel is connected to bridge, which
+	 * will be updated by panel specific overlay
+	 */
 	panel {
-		compatible = "boe,nv133fhm-n61";
 		no-hpd;
 		backlight = <&backlight>;
-
 		ports {
 			port {
 				panel_in_edp: endpoint {
