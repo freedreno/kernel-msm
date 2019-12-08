@@ -22,11 +22,13 @@
 		hsuart0 = &uart6;
 	};
 
+	/*
+	 * stub node which defines how panel is connected to bridge, which
+	 * will be updated by panel specific overlay
+	 */
 	panel {
-		compatible = "ivo,m133nwf4-r0";
 		power-supply = <&vlcm_3v3>;
 		no-hpd;
-
 		ports {
 			port {
 				panel_in_edp: endpoint {
