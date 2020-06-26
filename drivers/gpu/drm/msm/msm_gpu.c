@@ -821,6 +821,23 @@ static int get_clocks(struct platform_device *pdev, struct msm_gpu *gpu)
 	return 0;
 }
 
+/* Return a new address space instance */
+struct msm_gem_address_space *
+msm_gpu_address_space_instance(struct msm_gpu *gpu)
+{
+	if (!gpu)
+		return NULL;
+
+	/*
+	 * If the GPU doesn't support instanced address spaces return the
+	 * default address space
+	 */
+	if (!gpu->funcs->address_space_instance)
+		return msm_gem_address_space_get(gpu->aspace);
+
+	return gpu->funcs->address_space_instance(gpu);
+}
+
 int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		struct msm_gpu *gpu, const struct msm_gpu_funcs *funcs,
 		const char *name, struct msm_gpu_config *config)
