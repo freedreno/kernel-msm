@@ -816,6 +816,12 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	smmu_domain->smmu = smmu;
 	smmu_domain->dev = dev;
 
+	if (smmu->impl && smmu->impl->init_context) {
+		ret = smmu->impl->init_context(smmu_domain);
+		if (ret)
+			goto out_unlock;
+	}
+
 	pgtbl_cfg = (struct io_pgtable_cfg) {
 		.pgsize_bitmap	= smmu->pgsize_bitmap,
 		.ias		= ias,
