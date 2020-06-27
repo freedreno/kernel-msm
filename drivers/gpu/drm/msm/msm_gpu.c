@@ -823,8 +823,10 @@ static int get_clocks(struct platform_device *pdev, struct msm_gpu *gpu)
 
 /* Return a new address space instance */
 struct msm_gem_address_space *
-msm_gpu_address_space_instance(struct msm_gpu *gpu)
+msm_gpu_address_space_instance(struct msm_gpu *gpu, struct task_struct *task)
 {
+	struct msm_gem_address_space *aspace;
+
 	if (!gpu)
 		return NULL;
 
@@ -835,7 +837,11 @@ msm_gpu_address_space_instance(struct msm_gpu *gpu)
 	if (!gpu->funcs->address_space_instance)
 		return msm_gem_address_space_get(gpu->aspace);
 
-	return gpu->funcs->address_space_instance(gpu);
+	aspace = gpu->funcs->address_space_instance(gpu);
+	if (aspace)
+		aspace->pid = get_pid(task_pid(task));
+
+	return aspace;
 }
 
 int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,

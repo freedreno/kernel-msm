@@ -626,7 +626,7 @@ static int context_init(struct drm_device *dev, struct drm_file *file)
 
 	msm_submitqueue_init(dev, ctx);
 
-	ctx->aspace = msm_gpu_address_space_instance(priv->gpu);
+	ctx->aspace = msm_gpu_address_space_instance(priv->gpu, current);
 	file->driver_priv = ctx;
 
 	return 0;
