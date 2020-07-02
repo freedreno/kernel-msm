@@ -23,6 +23,10 @@ static int qcom_adreno_smmu_init_context(struct arm_smmu_domain *smmu_domain,
 	/* TTBR1 is only for the GPU stream ID and not the GMU */
 	if (!qcom_adreno_smmu_is_gpu_device(smmu_domain))
 		return 0;
+
+	WARN_ON(smmu_domain->stage != ARM_SMMU_DOMAIN_S1);
+	WARN_ON(smmu_domain->cfg.fmt != ARM_SMMU_CTX_FMT_AARCH64);
+
 	/*
 	 * All targets that use the qcom,adreno-smmu compatible string *should*
 	 * be AARCH64 stage 1 but double check because the arm-smmu code assumes

@@ -85,8 +85,11 @@ static void a6xx_set_pagetable(struct msm_gpu *gpu, struct msm_ringbuffer *ring,
 	phys_addr_t ttbr;
 	u32 asid;
 
-	if (msm_iommu_pagetable_params(ctx->aspace->mmu, &ttbr, &asid))
+	if (msm_iommu_pagetable_params(ctx->aspace->mmu, &ttbr, &asid)) {
+pr_err("A6XX: no pagetables\n");
 		return;
+	}
+pr_err("A6XX: set ttbr=%016llx, asid=%u\n", ttbr, asid);
 
 	/* Execute the table update */
 	OUT_PKT7(ring, CP_SMMU_TABLE_UPDATE, 4);
@@ -151,6 +154,7 @@ static void a6xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 			OUT_RING(ring, lower_32_bits(submit->cmd[i].iova));
 			OUT_RING(ring, upper_32_bits(submit->cmd[i].iova));
 			OUT_RING(ring, submit->cmd[i].size);
+pr_err("A6XX: CMD_BUF[%d]: iova=%016llx, size=%d\n", i, submit->cmd[i].iova, submit->cmd[i].size);
 			break;
 		}
 	}
@@ -322,6 +326,7 @@ static void a6xx_set_hwcg(struct msm_gpu *gpu, bool state)
 static int a6xx_cp_init(struct msm_gpu *gpu)
 {
 	struct msm_ringbuffer *ring = gpu->rb[0];
+pr_err("A6XX: CP_ME_INIT\n");
 
 	OUT_PKT7(ring, CP_ME_INIT, 8);
 

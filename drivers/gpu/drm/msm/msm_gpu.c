@@ -448,6 +448,8 @@ static void recover_worker(struct work_struct *work)
 
 	DRM_DEV_ERROR(dev->dev, "%s: hangcheck recover!\n", gpu->name);
 
+	dump_mmu_config(gpu->aspace->mmu);
+
 	submit = find_submit(cur_ring, cur_ring->memptrs->fence + 1);
 	if (submit) {
 		struct task_struct *task;
@@ -513,6 +515,7 @@ static void recover_worker(struct work_struct *work)
 		 * Replay all remaining submits starting with highest priority
 		 * ring
 		 */
+		if (0)
 		for (i = 0; i < gpu->nr_rings; i++) {
 			struct msm_ringbuffer *ring = gpu->rb[i];
 

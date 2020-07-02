@@ -20,9 +20,19 @@ struct msm_iommu_pagetable {
 	struct msm_mmu base;
 	struct msm_mmu *parent;
 	struct io_pgtable_ops *pgtbl_ops;
+
+	u64 iova_mask;
 	phys_addr_t ttbr;
 	u32 asid;
 };
+
+void arm_smmu_dump_mmu_config(struct iommu_domain *domain);
+
+void dump_mmu_config(struct msm_mmu *mmu)
+{
+	struct msm_iommu *iommu = to_msm_iommu(mmu);
+	arm_smmu_dump_mmu_config(iommu->domain);
+}
 
 static struct msm_iommu_pagetable *to_pagetable(struct msm_mmu *mmu)
 {
@@ -35,6 +45,9 @@ static int msm_iommu_pagetable_unmap(struct msm_mmu *mmu, u64 iova,
 	struct msm_iommu_pagetable *pagetable = to_pagetable(mmu);
 	struct io_pgtable_ops *ops = pagetable->pgtbl_ops;
 	size_t unmapped = 0;
+
+	iova &= pagetable->iova_mask;
+pr_err("A6XX: unmap: iova=%016llx, size=%d\n", iova, size);
 
 	/* Unmap the block one page at a time */
 	while (size) {
@@ -55,12 +68,13 @@ static int msm_iommu_pagetable_map(struct msm_mmu *mmu, u64 iova,
 	struct io_pgtable_ops *ops = pagetable->pgtbl_ops;
 	struct scatterlist *sg;
 	size_t mapped = 0;
-	u64 addr = iova;
+	u64 addr = iova & pagetable->iova_mask;
 	unsigned int i;
 
 	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
 		size_t size = sg->length;
 		phys_addr_t phys = sg_phys(sg);
+pr_err("A6XX: map: iova=%016llx, size=%d\n", iova, size);
 
 		/* Map the block one page at a time */
 		while (size) {
@@ -176,10 +190,11 @@ struct msm_mmu *msm_iommu_pagetable_create(struct msm_mmu *parent)
 		kfree(pagetable);
 		return ERR_PTR(-ENOMEM);
 	}
-
+pr_err("A6XX: quirks=%lx, pgsize_bitmap=%lx, ias=%u, oas=%u, coherent_walk=%d\n", cfg.quirks, cfg.pgsize_bitmap, cfg.ias, cfg.oas, cfg.coherent_walk);
 
 	/* Needed later for TLB flush */
 	pagetable->parent = parent;
+	pagetable->iova_mask = (1ULL << cfg.ias) - 1;
 	pagetable->ttbr = cfg.arm_lpae_s1_cfg.ttbr;
 
 	pagetable->asid = next_asid;

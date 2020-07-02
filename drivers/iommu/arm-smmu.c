@@ -681,6 +681,25 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx)
 	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, reg);
 }
 
+void arm_smmu_dump_mmu_config(struct iommu_domain *domain);
+
+void arm_smmu_dump_mmu_config(struct iommu_domain *domain)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+
+#define CB_DUMPQ(name) dev_warn(smmu->dev, "%s: %016llx\n", #name, \
+	arm_smmu_cb_readq(smmu, cfg->cbndx, ARM_SMMU_CB_ ## name));
+#define CB_DUMP(name) dev_warn(smmu->dev, "%s: %08x\n", #name, \
+	arm_smmu_cb_read(smmu, cfg->cbndx, ARM_SMMU_CB_ ## name));
+
+	CB_DUMPQ(TTBR0);
+	CB_DUMPQ(TTBR1);
+	CB_DUMP(TCR);
+}
+EXPORT_SYMBOL(arm_smmu_dump_mmu_config);
+
 /*
  * Update the context context bank to enable TTBR0. Assumes AARCH64 S1
  * configuration.
