@@ -13,7 +13,7 @@ The rules-ng-ng source files this header was generated from are:
 - /home/robclark/src/envytools/rnndb/mdp/mdp4.xml            (  20915 bytes, from 2018-07-03 19:37:13)
 - /home/robclark/src/envytools/rnndb/mdp/mdp_common.xml      (   2849 bytes, from 2018-07-03 19:37:13)
 - /home/robclark/src/envytools/rnndb/mdp/mdp5.xml            (  37411 bytes, from 2018-07-03 19:37:13)
-- /home/robclark/src/envytools/rnndb/dsi/dsi.xml             (  37239 bytes, from 2018-07-03 19:37:13)
+- /home/robclark/src/envytools/rnndb/dsi/dsi.xml             (  42301 bytes, from 2020-07-04 21:03:00)
 - /home/robclark/src/envytools/rnndb/dsi/sfpb.xml            (    602 bytes, from 2018-07-03 19:37:13)
 - /home/robclark/src/envytools/rnndb/dsi/mmss_cc.xml         (   1686 bytes, from 2018-07-03 19:37:13)
 - /home/robclark/src/envytools/rnndb/hdmi/qfprom.xml         (    600 bytes, from 2018-07-03 19:37:13)
