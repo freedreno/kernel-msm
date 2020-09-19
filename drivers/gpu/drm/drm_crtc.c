@@ -326,6 +326,14 @@ int drm_crtc_init_with_planes(struct drm_device *dev, struct drm_crtc *crtc,
 					   config->prop_out_fence_ptr, 0);
 		drm_object_attach_property(&crtc->base,
 					   config->prop_vrr_enabled, 0);
+
+		crtc->worker = kthread_create_worker(0, "%s-worker", crtc->name);
+		if (IS_ERR(crtc->worker)) {
+			drm_mode_object_unregister(dev, &crtc->base);
+			ret = PTR_ERR(crtc->worker);
+			crtc->worker = NULL;
+			return ret;
+		}
 	}
 
 	return 0;
@@ -365,6 +373,9 @@ void drm_crtc_cleanup(struct drm_crtc *crtc)
 		crtc->funcs->atomic_destroy_state(crtc, crtc->state);
 
 	kfree(crtc->name);
+
+	if (crtc->worker)
+		kthread_destroy_worker(crtc->worker);
 
 	memset(crtc, 0, sizeof(*crtc));
 }

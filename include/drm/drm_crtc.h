@@ -30,6 +30,7 @@
 #include <linux/types.h>
 #include <linux/fb.h>
 #include <linux/hdmi.h>
+#include <linux/kthread.h>
 #include <linux/media-bus-format.h>
 #include <uapi/drm/drm_mode.h>
 #include <uapi/drm/drm_fourcc.h>
@@ -1172,6 +1173,13 @@ struct drm_crtc {
 	 * Initialized via drm_self_refresh_helper_init().
 	 */
 	struct drm_self_refresh_data *self_refresh_data;
+
+	/**
+	 * @worker:
+	 *
+	 * Per-CRTC worker for nonblock atomic commits.
+	 */
+	struct kthread_worker *worker;
 };
 
 /**
