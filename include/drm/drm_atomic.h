@@ -373,8 +373,18 @@ struct drm_atomic_state {
 	 *
 	 * Work item which can be used by the driver or helpers to execute the
 	 * commit without blocking.
+	 *
+	 * This is deprecated, use commit_kwork.
 	 */
 	struct work_struct commit_work;
+
+	/**
+	 * @commit_kwork:
+	 *
+	 * Work item which can be used by the driver or helpers to execute the
+	 * commit without blocking.
+	 */
+	struct kthread_work commit_kwork;
 };
 
 void __drm_crtc_commit_free(struct kref *kref);
@@ -953,6 +963,27 @@ void drm_state_dump(struct drm_device *dev, struct drm_printer *p);
 		     ((obj) = (__state)->private_objs[__i].ptr, \
 		      (new_obj_state) = (__state)->private_objs[__i].new_state, 1); \
 	     (__i)++)
+
+/**
+ * drm_atomic_pick_worker - helper to get kworker to use for nonblocking commit
+ * @state: the &drm_atomic_state for the commit
+ *
+ * Pick an appropriate worker for a given atomic update.  The first CRTC
+ * invovled in the atomic update is used to pick the worker, to prevent
+ * serializing multiple pageflips / atomic-updates on indenpendent CRTCs.
+ */
+static inline struct kthread_worker *
+drm_atomic_pick_worker(const struct drm_atomic_state *state)
+{
+	struct drm_crtc_state *crtc_state;
+	struct drm_crtc *crtc;
+	unsigned i;
+
+	for_each_new_crtc_in_state(state, crtc, crtc_state, i)
+		return crtc->worker;
+
+	return NULL;
+}
 
 /**
  * drm_atomic_crtc_needs_modeset - compute combined modeset need

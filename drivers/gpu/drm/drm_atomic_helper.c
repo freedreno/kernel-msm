@@ -1659,11 +1659,11 @@ static void commit_tail(struct drm_atomic_state *old_state)
 	drm_atomic_state_put(old_state);
 }
 
-static void commit_work(struct work_struct *work)
+static void commit_work(struct kthread_work *work)
 {
 	struct drm_atomic_state *state = container_of(work,
 						      struct drm_atomic_state,
-						      commit_work);
+						      commit_kwork);
 	commit_tail(state);
 }
 
@@ -1797,6 +1797,7 @@ int drm_atomic_helper_commit(struct drm_device *dev,
 			     struct drm_atomic_state *state,
 			     bool nonblock)
 {
+	struct kthread_worker *worker = NULL;
 	int ret;
 
 	if (state->async_update) {
@@ -1814,7 +1815,7 @@ int drm_atomic_helper_commit(struct drm_device *dev,
 	if (ret)
 		return ret;
 
-	INIT_WORK(&state->commit_work, commit_work);
+	kthread_init_work(&state->commit_kwork, commit_work);
 
 	ret = drm_atomic_helper_prepare_planes(dev, state);
 	if (ret)
@@ -1857,8 +1858,12 @@ int drm_atomic_helper_commit(struct drm_device *dev,
 	 */
 
 	drm_atomic_state_get(state);
+
 	if (nonblock)
-		queue_work(system_unbound_wq, &state->commit_work);
+		worker = drm_atomic_pick_worker(state);
+
+	if (worker)
+		kthread_queue_work(worker, &state->commit_kwork);
 	else
 		commit_tail(state);
 
