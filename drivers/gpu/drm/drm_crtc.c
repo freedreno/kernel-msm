@@ -334,6 +334,9 @@ int drm_crtc_init_with_planes(struct drm_device *dev, struct drm_crtc *crtc,
 			crtc->worker = NULL;
 			return ret;
 		}
+
+		drm_object_attach_property(&crtc->base,
+					   config->kwork_tid_property, 0);
 	}
 
 	return 0;

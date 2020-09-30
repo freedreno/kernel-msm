@@ -285,6 +285,7 @@ int drm_object_property_set_value(struct drm_mode_object *obj,
 
 	WARN_ON(drm_drv_uses_atomic_modeset(property->dev) &&
 		!(property->flags & DRM_MODE_PROP_IMMUTABLE));
+	WARN_ON(property->get_value);
 
 	for (i = 0; i < obj->properties->count; i++) {
 		if (obj->properties->properties[i] == property) {
@@ -302,6 +303,9 @@ static int __drm_object_property_get_value(struct drm_mode_object *obj,
 					   uint64_t *val)
 {
 	int i;
+
+	if (property->get_value)
+		return property->get_value(obj, val);
 
 	/* read-only properties bypass atomic mechanism and still store
 	 * their value in obj->properties->values[].. mostly to avoid

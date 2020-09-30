@@ -926,6 +926,15 @@ struct drm_mode_config {
 	 */
 	struct drm_property *modifiers_property;
 
+	/**
+	 * @kwork_tid_property: CRTC property to expose the task-id of the per-
+	 * CRTC kthread-worker, used for non-block atomic commit.  This is exposed
+	 * to userspace, to allow userspace to control the scheduling policy and
+	 * priority, as this is a decision that depends on how userspace structures
+	 * it's rendering pipeline.
+	 */
+	struct drm_property *kwork_tid_property;
+
 	/* cursor size */
 	uint32_t cursor_width, cursor_height;
 

@@ -188,6 +188,15 @@ struct drm_property {
 	 * enum and bitmask values.
 	 */
 	struct list_head enum_list;
+
+	/**
+	 * @get_value: accessor to get current value for "virtual" properties
+	 *
+	 * For properties with dynamic values, where it is for whatever reason
+	 * not feasible to keep updated with drm_object_property_set_value(),
+	 * this callback can be used to retrieve the current value on demand.
+	 */
+	int (*get_value)(struct drm_mode_object *obj, uint64_t *val);
 };
 
 /**

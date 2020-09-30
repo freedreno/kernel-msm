@@ -215,6 +215,13 @@ static const struct drm_prop_enum_list drm_plane_type_enum_list[] = {
 	{ DRM_PLANE_TYPE_CURSOR, "Cursor" },
 };
 
+static int get_kwork_tid(struct drm_mode_object *obj, uint64_t *val)
+{
+	struct drm_crtc *crtc = obj_to_crtc(obj);
+	*val = task_pid_vnr(crtc->worker->task);
+	return 0;
+}
+
 static int drm_mode_create_standard_properties(struct drm_device *dev)
 {
 	struct drm_property *prop;
@@ -370,6 +377,13 @@ static int drm_mode_create_standard_properties(struct drm_device *dev)
 	if (!prop)
 		return -ENOMEM;
 	dev->mode_config.modifiers_property = prop;
+
+	prop = drm_property_create_range(dev, DRM_MODE_PROP_ATOMIC,
+			"KWORK_TID", 0, UINT_MAX);
+	if (!prop)
+		return -ENOMEM;
+	prop->get_value = get_kwork_tid;
+	dev->mode_config.kwork_tid_property = prop;
 
 	return 0;
 }
