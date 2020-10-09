@@ -84,6 +84,11 @@ static struct devfreq_dev_profile msm_devfreq_profile = {
 	.get_cur_freq = msm_devfreq_get_cur_freq,
 };
 
+static struct devfreq_simple_ondemand_data msm_devfreq_ondemand_data = {
+	.upthreshold = 80,	    /* bump to max if utilization > up, default 90 */
+	.downdifferential = 5,	/* recalculate if utilization <= (up-down), default 5 */
+};
+
 static void msm_devfreq_init(struct msm_gpu *gpu)
 {
 	/* We need target support to do devfreq */
@@ -103,7 +108,7 @@ static void msm_devfreq_init(struct msm_gpu *gpu)
 
 	gpu->devfreq.devfreq = devm_devfreq_add_device(&gpu->pdev->dev,
 			&msm_devfreq_profile, DEVFREQ_GOV_SIMPLE_ONDEMAND,
-			NULL);
+			&msm_devfreq_ondemand_data);
 
 	if (IS_ERR(gpu->devfreq.devfreq)) {
 		DRM_DEV_ERROR(&gpu->pdev->dev, "Couldn't initialize GPU devfreq\n");
