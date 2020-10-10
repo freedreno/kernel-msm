@@ -78,7 +78,7 @@ static int msm_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
 }
 
 static struct devfreq_dev_profile msm_devfreq_profile = {
-	.polling_ms = 10,
+	.polling_ms = 83,
 	.target = msm_devfreq_target,
 	.get_dev_status = msm_devfreq_get_dev_status,
 	.get_cur_freq = msm_devfreq_get_cur_freq,
