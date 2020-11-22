@@ -1474,9 +1474,9 @@ static struct iommu_group *arm_smmu_device_group(struct device *dev)
 		group = generic_device_group(dev);
 
 	/* Remember group for faster lookups */
-	if (!IS_ERR(group))
-		for_each_cfg_sme(cfg, fwspec, i, idx)
-			smmu->s2crs[idx].group = group;
+//	if (!IS_ERR(group))
+//		for_each_cfg_sme(cfg, fwspec, i, idx)
+//			smmu->s2crs[idx].group = group;
 
 	return group;
 }
