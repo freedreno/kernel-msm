@@ -49,6 +49,7 @@ static int dsi_get_version(const void __iomem *base, u32 *major, u32 *minor)
 	 */
 
 	ver = msm_readl(base + REG_DSI_VERSION);
+printk(KERN_ERR"Got ver=%08x\n", ver);
 	if (ver) {
 		/* older dsi host, there is no register shift */
 		ver = FIELD(ver, DSI_VERSION_MAJOR);
@@ -67,6 +68,7 @@ static int dsi_get_version(const void __iomem *base, u32 *major, u32 *minor)
 		 * the shifted offset
 		 */
 		ver = msm_readl(base + DSI_6G_REG_SHIFT + REG_DSI_VERSION);
+printk(KERN_ERR"Got ver2=%08x\n", ver);
 		ver = FIELD(ver, DSI_VERSION_MAJOR);
 		if (ver == MSM_DSI_VER_MAJOR_6G) {
 			/* 6G version */
@@ -1880,6 +1882,9 @@ int msm_dsi_host_init(struct msm_dsi *msm_dsi)
 	 */
 	if (!msm_dsi->enabled_at_boot)
 		pm_runtime_enable(&pdev->dev);
+	else
+		WARN_ON(!msm_is_enabled(&pdev->dev));
+
 
 	pm_runtime_get_sync(&pdev->dev);
 
