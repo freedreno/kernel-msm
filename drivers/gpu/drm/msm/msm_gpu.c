@@ -256,6 +256,8 @@ int msm_gpu_pm_suspend(struct msm_gpu *gpu)
 	if (ret)
 		return ret;
 
+	gpu->suspend_count++;
+
 	return 0;
 }
 
