@@ -14,7 +14,7 @@ msm_gem_shrinker_count(struct shrinker *shrinker, struct shrink_control *sc)
 {
 	struct msm_drm_private *priv =
 		container_of(shrinker, struct msm_drm_private, shrinker);
-	return priv->shrinkable_count;
+	return priv->shrinkable_count + priv->evictable_count;
 }
 
 static bool
@@ -28,6 +28,18 @@ purge(struct msm_gem_object *msm_obj)
 	 * the purged list
 	 */
 	msm_gem_purge(&msm_obj->base);
+
+	return true;
+}
+
+static bool
+evict(struct msm_gem_object *msm_obj)
+{
+	if (is_unevictable(msm_obj))
+		return false;
+
+	// TODO maybe rename s/evict/unpin/??
+	msm_gem_evict(&msm_obj->base);
 
 	return true;
 }
@@ -103,6 +115,14 @@ msm_gem_shrinker_scan(struct shrinker *shrinker, struct shrink_control *sc)
 
 	if (freed > 0)
 		trace_msm_gem_purge(freed << PAGE_SHIFT);
+
+	if (freed < sc->nr_to_scan) {
+		int evicted = scan(priv, sc, freed, evict, &priv->inactive_willneed);
+
+		// TODO tracepoint..
+
+		freed += evicted;
+	}
 
 	return (freed > 0) ? freed : SHRINK_STOP;
 }
