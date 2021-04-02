@@ -17,13 +17,27 @@ msm_gem_shrinker_count(struct shrinker *shrinker, struct shrink_control *sc)
 	return priv->shrinkable_count;
 }
 
-static unsigned long
-msm_gem_shrinker_scan(struct shrinker *shrinker, struct shrink_control *sc)
+static bool
+purge(struct msm_gem_object *msm_obj)
 {
-	struct msm_drm_private *priv =
-		container_of(shrinker, struct msm_drm_private, shrinker);
+	if (!is_purgeable(msm_obj))
+		return false;
+
+	/*
+	 * This will move the obj out of still_in_list to
+	 * the purged list
+	 */
+	msm_gem_purge(&msm_obj->base);
+
+	return true;
+}
+
+static unsigned long
+scan(struct msm_drm_private *priv, struct shrink_control *sc, unsigned long freed,
+		bool (*shrink)(struct msm_gem_object *msm_obj),
+		struct list_head *list)
+{
 	struct list_head still_in_list;
-	unsigned long freed = 0;
 
 	INIT_LIST_HEAD(&still_in_list);
 
@@ -31,7 +45,7 @@ msm_gem_shrinker_scan(struct shrinker *shrinker, struct shrink_control *sc)
 
 	while (freed < sc->nr_to_scan) {
 		struct msm_gem_object *msm_obj = list_first_entry_or_null(
-				&priv->inactive_dontneed, typeof(*msm_obj), mm_list);
+				list, typeof(*msm_obj), mm_list);
 
 		if (!msm_obj)
 			break;
@@ -62,14 +76,9 @@ msm_gem_shrinker_scan(struct shrinker *shrinker, struct shrink_control *sc)
 		if (!msm_gem_trylock(&msm_obj->base))
 			goto tail;
 
-		if (is_purgeable(msm_obj)) {
-			/*
-			 * This will move the obj out of still_in_list to
-			 * the purged list
-			 */
-			msm_gem_purge(&msm_obj->base);
+		if (shrink(msm_obj))
 			freed += msm_obj->base.size >> PAGE_SHIFT;
-		}
+
 		msm_gem_unlock(&msm_obj->base);
 
 tail:
@@ -77,16 +86,25 @@ tail:
 		mutex_lock(&priv->mm_lock);
 	}
 
-	list_splice_tail(&still_in_list, &priv->inactive_dontneed);
+	list_splice_tail(&still_in_list, list);
 	mutex_unlock(&priv->mm_lock);
 
-	if (freed > 0) {
-		trace_msm_gem_purge(freed << PAGE_SHIFT);
-	} else {
-		return SHRINK_STOP;
-	}
-
 	return freed;
+}
+
+static unsigned long
+msm_gem_shrinker_scan(struct shrinker *shrinker, struct shrink_control *sc)
+{
+	struct msm_drm_private *priv =
+		container_of(shrinker, struct msm_drm_private, shrinker);
+	unsigned long freed = 0;
+
+	freed = scan(priv, sc, freed, purge, &priv->inactive_dontneed);
+
+	if (freed > 0)
+		trace_msm_gem_purge(freed << PAGE_SHIFT);
+
+	return (freed > 0) ? freed : SHRINK_STOP;
 }
 
 /* since we don't know any better, lets bail after a few
