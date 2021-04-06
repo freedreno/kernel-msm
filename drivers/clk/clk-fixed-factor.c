@@ -167,7 +167,7 @@ void clk_hw_unregister_fixed_factor(struct clk_hw *hw)
 	fix = to_clk_fixed_factor(hw);
 
 	clk_hw_unregister(hw);
-	kfree(fix);
+//	kfree(fix);
 }
 EXPORT_SYMBOL_GPL(clk_hw_unregister_fixed_factor);
 
