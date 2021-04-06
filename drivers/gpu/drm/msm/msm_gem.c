@@ -705,6 +705,8 @@ void msm_gem_put_vaddr(struct drm_gem_object *obj)
 int msm_gem_madvise(struct drm_gem_object *obj, unsigned madv)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+// TODO error on is_unpurgable() or msm_obj->dontneed!!!
+// TODO also dma-buf export of dontneed is not-ok
 
 	msm_gem_lock(obj);
 

@@ -65,6 +65,13 @@ struct msm_gem_object {
 	 */
 	bool evictable : 1;
 
+	// TODO track if bo is currently evicted.. if it is MADV_WONTNEED after
+	// evicted, we should mark it as PURGED and not swap it back in if it
+	// is later MADV_WILLNEED while still evicted.. in fact, maybe just
+	// transition directly to MADV_PURGED state if madvise(WONTNEED) while
+	// in the evicted state.. no point to swap back in pages later in this
+	// case!
+
 	/**
 	 * count of active vmap'ing
 	 */
